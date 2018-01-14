@@ -1,0 +1,210 @@
+#!/usr/bin/python
+
+import os, sys
+import shutil
+import json
+
+SCRIPT_NAME = sys.argv[0]
+
+## Supporting Functions
+def fetch_env_var_val(env_var_name):
+    '''
+    '''
+    if env_var_name in os.environ:
+        return(os.environ[env_var_name])
+    else:
+        print SCRIPT_NAME, ": Environment variable", env_var_name, "not found"
+        return None
+
+def get_intu_element_list(bootstrap_data_json, element_type_str, name_proto_str="Type_"):
+    '''
+    parses json structure from intu bootstrap.json config file and
+    extracts list of element fields from top-level dict key matching "element_type_str"
+    Inputs:
+      bootstrap_data_json: json structure of bootstrap.json file (dict{list[dicts{}]})
+      element_type_str: desired key of top-level json data to be parsed ex: "m_Agents"
+      name_proto_str: 3rd-level key (varies by element type) to be returned as the "name"
+        ex: name_proto_str="Type_" for agents; ="m_ServiceId" for serviceConfigs
+    Returns: 
+      list of element types (agent names, classifier names, serviceConfig Id's)
+    '''
+    if element_type_str in bootstrap_data_json:
+       lst = bootstrap_data_json[element_type_str]
+       return [lst[i][name_proto_str] for i in range(len(lst))]
+    else:
+       print(SCRIPT_NAME, ": Error: element", element_type_str, " not in boostrap.json data")
+       return []
+
+def set_creds_from_env_var(bootstrap_data_json, serviceid_name_str):
+    '''
+    parses json structure from intu bootstrap.json config file and
+    matches an m_ServiceConfig user and password (m_User, m_Password) with values expected in
+    system environment variables
+    Inputs: 
+       bootstrap_data_json: json structure of bootstrap.json file (dict{list[dicts{}]})
+       name_str: field matching "m_ServiceId" within "m_ServiceConfigs" list
+       (assumed: element_type_str = "m_ServiceConfigs")
+    Returns:
+       data: Modified json structure (copy) of bootstrap_data_json input
+       err: 0 if successful, 1 if error
+    '''
+    data, err = set_value_from_env_var(bootstrap_data_json, serviceid_name_str, "m_Password")
+    data, err = set_value_from_env_var(bootstrap_data_json, serviceid_name_str, "m_User")
+
+    return data, err
+
+def set_value_from_env_var(bootstrap_data_json, element_name_str, key_str, val):
+    '''
+    ex: element_name_str="m_ServiceConfigs"
+        name_proto_str="SpeechToTextV1"
+        (assumed: serviceId="m_ServiceId")
+    '''
+    serviceId = "" 
+    data = bootstrap_data_json
+    serviceIds = get_intu_element_list(data, element_name_str, "m_ServiceId")
+    for i, serviceId in enumerate(serviceIds):
+        expected_env_var = 'INTU' + serviceId.upper() + '_' + name_proto_str.upper()
+        check = os.getenv(expected_env_var)
+        if check is not 'None':
+           data[element_name_str][i]
+        else:
+           print(SCRIPT_NAME, ": warning:", element_name_str, 
+               ": m_ServiceId :", name_proto_str, ": cannot be set.", 
+               expected_env_var, "does not exist in boostrap.json file")
+
+
+    # Find name_proto_str in 3rd-level json structure
+    # Check input value for type (str, float, int)
+    # Set value appropriately
+
+    # Return modified json structure and err (if any)
+
+    return data, err
+
+def set_intu_config_val(data, env_var):
+    '''
+    Read env_var input string, decompose, and find matching intu config parameter in json
+      data dict
+    Set intu config param to value pointed to by environment variable name
+    See google spreadsheet doc for naming convention: 
+      https://docs.google.com/spreadsheets/d/1J9RxQHpA0ZYXnvbDBzSFkyRsfA3vBhI9YRgxsxc0z6Q
+    '''
+    # Decompose environment variable name, get value
+    tokens = env_var.split('_')[1:]   # first is prefix (not used)
+
+    # Check for too-short/insufficient environment variable names
+    if len(tokens) < 2:
+       print (SCRIPT_NAME, ": warning: an apparent config environment variable was too short to be used:", 
+           env_var)
+    
+    # Check for intu member variables in last position
+    if len(tokens[-2]) == 1:                            # yep: "m_User", etc
+	tokens[-2] = '_'.join([tokens[-2], tokens[-1]]) # rebuild variable
+        tokens.pop()
+    print ("tokens =", tokens)
+
+    # Parse out env var bits    
+    name = tokens[0]         # ConversationV1, SpeechToTextV1, etc           (literal)
+    type_str = tokens[1]     # SRVC or CLAS (service or classifier;          symbolic)
+    cred = tokens[2]         # m_User, m_Password, WorkspaceKey, WorkspaceId (literal)
+        
+    # Get env var value
+    val = os.environ[env_var]
+
+    # Set the env var value depending on type
+    err = 1		     # 1 = bad
+    if type_str == "SRVC":
+        err = set_config_val(data, "m_ServiceConfigs", name, "m_ServiceId", cred, val)
+    elif type_str == "SVC":
+        err = set_config_val(data, "m_Services", name, "m_ServiceId", cred, val)
+    elif type_str == "SNSR":
+        err = set_config_val(data, "m_Sensors", name, "m_SensorName", cred, val)
+    elif type_str == "CLAS":
+        err = set_config_val(data, "m_ClassifierConfigs", name, "", cred, val)
+        err = set_classifier_config_val(data, short_name, cred, val)
+    else:
+        print (SCRIPT_NAME, ": error: could not set config for unknown type:", type_str, "; env var =", env_var)
+
+    return err
+    
+def set_type(val, typ):
+    '''
+    Sets the type of a value compatible with json format
+     unicode string
+     int
+     float
+    '''
+    t = str(typ)
+    print t
+    if t.find("unicode") >= 0:
+        return(unicode(str(val), "utf-8"))
+    elif t.find("float") >= 0:
+        return(float(val))
+    elif t.find("int") >= 0:
+        return(int(val))
+    else:
+        return val
+
+def set_config_val(data, category, name, keyId, var_name, value):
+    '''
+    '''
+    # Get service names list
+    service_config_names = get_intu_element_list(data, category, keyId)
+    #print("m_ServiceConfigs=%s" % service_config_names)
+
+    # If service name exists in list, check variable and set value
+    if name in service_config_names:
+       indx = service_config_names.index(name)
+       # If variable name is in this service dict, set value (same type)
+       if var_name in data[category][indx]:
+           value_type = type(data[category][indx][var_name])
+           data[category][indx][var_name] = set_type(value, value_type)
+           t = type(data[category][indx][var_name])
+
+    
+def set_classifier_config_val(data, name, var_name, value):
+    '''
+    '''
+    classifier_names = get_intu_element_list(data, "m_Classifiers", "Type_")
+
+
+
+
+
+## Main
+def main(args):
+    print SCRIPT_NAME, ": Main()"
+
+    # Check for and read Intu bootstrap file:
+    bootstrap_file = fetch_env_var_val("INTU_BOOTSTRAP_FILE_PATH")
+    if bootstrap_file == None:
+        raise Exception("%s: Error: environment var not found." % SCRIPT_NAME)
+
+    # Make a backup copy of the bootstrap.json file
+    shutil.copy2(bootstrap_file, bootstrap_file+".bak")
+
+    # Get environment variables having our prefix
+    prefix = "WATSON"
+    env_vars = []
+    for env in os.environ:
+        if env.startswith(prefix): 
+            env_vars.append(env)
+    
+    # Read json bootstrap file, with intu config settings
+    data = None
+    with open(bootstrap_file, 'r') as infile:
+        data = json.load(infile)
+
+    # Set each environment variable value in our json structure (passed by ref)
+    for env in env_vars:
+        err = set_intu_config_val(data, env)
+
+    # Write out new bootstrap.json file
+    with open(bootstrap_file + "-test.json", 'w') as outfile:
+         json.dump(data, outfile, indent=4, sort_keys=True)
+
+    sys.exit(0)
+
+if __name__ == '__main__':
+    main(sys.argv)
+

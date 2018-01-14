@@ -1,0 +1,72 @@
+# Dockerfile, watson-intu/Self build using debian-jessie (arm64)
+
+FROM debian:jessie
+MAINTAINER dyec@us.ibm.com
+
+# Required for web UI
+EXPOSE 9443
+
+RUN apt-get update && apt-get install -y apt-utils
+RUN apt-get install -y \
+  build-essential \
+  cmake \
+  curl \
+  git \
+  libpng12-dev \
+  alsa-utils \
+  usbutils \
+  gettext \
+  unzip \
+  wget \
+  vim
+
+## Grab self code
+RUN mkdir -p /root/src/watson-intu
+RUN git clone --branch develop --recursive https://github.com/watson-intu/self.git /root/src/watson-intu/self
+
+## Install Anaconda (x86, 64 bit version)
+# silent mode install anaconda  https://conda.io/docs/user-guide/install/linux.html#install-linux-silent
+RUN wget https://repo.continuum.io/archive/Anaconda2-4.4.0-Linux-x86_64.sh
+RUN bash Anaconda2-4.4.0-Linux-x86_64.sh -b -p $HOME/anaconda2 2>&1 > /tmp/anaconda_install.log || echo "any issues captured in /tmp/anaconda_install.log"
+RUN export PATH="$HOME/anaconda2/bin:$PATH"
+
+# Install pip, python-dev libssl-dev, opencv-dev, py-opencv, LXDE & deps
+RUN apt-get install -y libssl-dev \
+  python-pip \
+  python2.7-dev \
+  libopencv-dev \
+  python-opencv \
+  libboost-all-dev \  
+  alsaplayer \
+  alsaplayer-text
+
+# Pip install python deps (qibuild, numpy)
+RUN pip install --upgrade pip
+RUN pip install qibuild numpy
+
+## Build required userland libs (supports sound card / alsa)
+WORKDIR /root/src/
+RUN git clone https://github.com/raspberrypi/userland.git
+WORKDIR userland
+RUN ./buildme
+
+# Build Self (default config)
+WORKDIR /root/src/watson-intu/self
+COPY tc_install.sh /root/src/watson-intu/self/scripts/tc_install.sh
+RUN ./scripts/build_linux.sh
+
+## Edit ALSA config (set sound card to #3: USB card, after webcam (#2))
+COPY alsa.conf /usr/share/alsa/alsa.conf
+
+### Self setup
+##  Copy over bootstrap.json file (to reference your IBM Cloud credentials)
+#COPY bootstrap.json /root/src/watson-intu/self/bin/linux/etc/shared/bootstrap.json
+
+
+##############
+## Build:
+# docker build -f Dockerfile-dev -t <registry>/amd64/tx2/self-develop:<version> .
+## Run:
+# docker run -it --rm --privileged -p 9443:9443 <registry>/amd64/debian/self-develop /bin/bash
+# then run self (linux build): ./bin/linux/run_self.sh
+

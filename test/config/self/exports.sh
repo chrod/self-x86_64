@@ -1,0 +1,28 @@
+export INTU_BOOTSTRAP_FILE_PATH=/configs/bootstrap.json
+
+export WATSON_WeatherCompanyDataV1_m_User=245b5526-8105-4553-ba76-2cca05e17ed7
+export WATSON_WeatherCompanyDataV1_m_Password=EIVvM9cJFM
+export WATSON_SpeechToTextV1_m_User=ed12108e-4d78-4f29-a464-766d761424fd
+export WATSON_SpeechToTextV1_m_Password=tjzUkJgRRYM1
+export WATSON_TextToSpeechV1_m_User=bf2e4e3d-8eee-4bb8-979e-5c073141dc14
+export WATSON_TextToSpeechV1_m_Password=ohASG5rACqgw
+export WATSON_VisualRecognitionV1_m_Password=9927abfb81ee1a129a0846e28b179170cd446ea9
+export WATSON_NaturalLanguageUnderstandingV1_m_Password=test1
+export WATSON_ConversationV1_m_User=680b8c91-6f2b-4a40-91f8-9056ef8b2f1b
+export WATSON_ConversationV1_m_Password=AJMKGeGyPo6m
+export WATSON_LanguageTranslatorV1_m_User=test1
+export WATSON_LanguageTranslatorV1_m_Password=test1
+export WATSON_ToneAnalyzerV1_m_Password=test1
+export WATSON_ToneAnalyzerV1_m_User=test1
+export WATSON_NaturalLanguageUnderstandingV1_m_User=test1
+export WATSON_NaturalLanguageUnderstandingV1_m_Password=test1
+
+export WATSON_ConversationV1_m_WorkspaceId=1b4faf0d-eddb-4bc0-9771-490082882f9e
+
+
+#WATSON_PCL_SRVC_m_ModelSS=1337.1337
+#WATSON_ToneAnalyzerV1_SRVC_m_Password=test1-passwd3894=3430939--
+#WATSON_ToneAnalyzerV1_SRVC_m_User=test1-userkdfsdlaksad
+#WATSON_Camera_SNSR_m_CameraStream=1337.1337
+#WATSON_Camera_SNSR_m_Height=1337
+#WATSON_PCL_SVC_m_ModelSS=1337.1337
