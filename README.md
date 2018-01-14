@@ -12,6 +12,7 @@ A USB Webcam such as the common Logitech C720 should work. We're working on enab
 Clone this repo into a folder on your machine
 
  `git clone https://github.com/open-horizon/self-x86_64.git`
+ 
  `cd self-x86_64`
 
 Build Self docker image (this image will be ~6-7GB, ensure you have sufficient disk space)
